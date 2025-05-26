@@ -34,4 +34,4 @@ networks:
     driver: bridge
 
     # Recolectar archivos estáticos (si es necesario)
-RUN python manage.py collectstatic --noinput
+command: python manage.py collectstatic --noinput
