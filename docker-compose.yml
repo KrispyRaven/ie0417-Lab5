@@ -32,3 +32,6 @@ volumes:
 networks:
   django_network:
     driver: bridge
+
+    # Recolectar archivos estáticos (si es necesario)
+RUN python manage.py collectstatic --noinput
