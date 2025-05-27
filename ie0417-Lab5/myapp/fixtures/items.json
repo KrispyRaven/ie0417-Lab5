@@ -1,0 +1,24 @@
+ [
+  
+ {
+    "model": "myapp.item",
+    "pk": 1,
+    "fields": {
+      "name": "Item A"
+    }
+  },
+  {
+    "model": "myapp.item",
+    "pk": 2,
+    "fields": {
+      "name": "Item B"
+    }
+  },
+  {
+    "model": "myapp.item",
+    "pk": 3,
+    "fields": {
+      "name": "Item C"
+    }
+  }
+]
