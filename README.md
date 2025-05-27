@@ -22,21 +22,30 @@ graph TD
 
 ### 1. `Dockerfile` (Aplicación Django)
 ```dockerfile
-# Imagen base
 FROM python:3.9-slim
 
-# Configuración del entorno
+# Instalar dependencias del sistema (usando netcat-openbsd)
+RUN apt-get update && apt-get install -y \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Instalación de dependencias
 WORKDIR /app
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el proyecto y configurar el entrypoint
 COPY . .
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "proyecto.wsgi:application"]
+COPY datos.sh /app/datos.sh
+RUN chmod +x /app/datos.sh
+RUN mkdir -p /app/staticfiles
+
+EXPOSE 8000
+
+#CMD ["bash", "-c", "while ! nc -z db 5432; do sleep 2; echo 'Waiting for DB...'; done && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8000 myapp.wsgi"]python manage.py makemigrations
+ENTRYPOINT ["/app/datos.sh"]
 ```
 
 **Funcionalidad:**  
@@ -53,30 +62,34 @@ version: '3.8'
 services:
   web:
     build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+    working_dir: /code
     ports:
-      - "8080:8000"
-    env_file:
-      - .env
+      - "8000:8000"
     depends_on:
       - db
-    networks:
-      - lab_network
+    environment:
+      - PYTHONPATH=/code
+      - DJANGO_SETTINGS_MODULE=myproject.settings
 
   db:
-    image: postgres:13
-    env_file:
-      - .env
+    image: postgres:15-alpine
     volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - lab_network
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  db_data:
-
-networks:
-  lab_network:
-    driver: bridge
+  postgres_data:
 ```
 
 **Funcionalidad:**  
@@ -85,17 +98,6 @@ networks:
 
 ---
 
-### 3. `.env` (Ejemplo)
-```ini
-POSTGRES_DB=mydb
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-SECRET_KEY=django-insecure-secretkey
-```
-
-**Nota:** Este archivo debe ignorarse en Git (añadir a `.gitignore`).  
-
----
 
 ## Instrucciones para Ejecutar el Entorno
 
@@ -124,21 +126,7 @@ SECRET_KEY=django-insecure-secretkey
 5. **Acceder a la aplicación:**  
    Abrir `http://localhost:8080` en el navegador.  
 
----
-
-## Capturas de Pantalla
-
-1. **Aplicación Django en funcionamiento:**  
-   ![localhost_8080](https://ejemplo.com/captura1.png)  
-   *Descripción: Página principal de la aplicación Django.*  
-
-2. **Contenedores en ejecución:**  
-   ![docker ps](https://ejemplo.com/captura2.png)  
-   *Descripción: Salida de `docker ps` mostrando los contenedores activos.*  
-
-3. **Base de datos persistente:**  
-   ![volumen postgres](https://ejemplo.com/captura3.png)  
-   *Descripción: Verificación del volumen `db_data` con `docker volume inspect`.*  
+--
 
 ---
 
@@ -147,5 +135,3 @@ SECRET_KEY=django-insecure-secretkey
 - **Buenas prácticas:** Uso de volúmenes, redes personalizadas y variables de entorno.  
 - **Extensibilidad:** La estructura permite añadir más servicios (ej: Redis) fácilmente.  
 ``` 
-
-**Reemplazar** las URLs de las capturas con imágenes reales. Para generarlas, puede usar herramientas como [Lightshot](https://app.prntscr.com/) o la función de captura de pantalla de su sistema operativo.
